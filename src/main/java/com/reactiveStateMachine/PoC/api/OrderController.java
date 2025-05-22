@@ -26,7 +26,7 @@ public class OrderController {
 		return orderService.createOrder();
 	}
 
-	@PostMapping("/{id}/event")
+	@PostMapping("/event")
 	public Mono<String> processEvent(@RequestBody UUID id, @RequestBody OrderEvent event) {
 		return orderService.processEvent(id, event);
 	}

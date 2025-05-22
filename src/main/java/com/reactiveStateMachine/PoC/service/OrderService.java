@@ -26,7 +26,7 @@ public class OrderService {
     private StateMachineFactory<OrderState, OrderEvent> factory;
     
     public Mono<Order> createOrder() {
-        Order order = new Order(OrderState.NEW);
+        Order order = new Order();
         return orderRepository.save(order);
     }
 
@@ -37,19 +37,25 @@ public class OrderService {
                 StateMachine<OrderState, OrderEvent> sm = factory.getStateMachine(orderId.toString());
 
                 return sm.startReactively()
-                    .then(Mono.create(sink -> sm.getStateMachineAccessor().doWithAllRegions(access -> 
-                        access.resetStateMachineReactively(
-                            new DefaultStateMachineContext<>(order.getState(), null, null, null, null, orderId.toString())
-                        ).subscribe(sink::success, sink::error)
-                    )))
+                    .then(Mono.defer(() ->
+                        Mono.fromDirect(
+                            sm.getStateMachineAccessor().withRegion().resetStateMachineReactively(
+                                new DefaultStateMachineContext<>(
+                                    order.getState(), null, null, null, null, orderId.toString()
+                                )
+                            )
+                        )
+                    ))
                     .thenMany(sm.sendEvent(Mono.just(MessageBuilder.withPayload(event).build())))
                     .then(Mono.defer(() -> {
                         order.setState(sm.getState().getId());
                         return orderRepository.save(order)
-                                .then(sm.stopReactively())
-                                .thenReturn("Order state: " + order.getState() + " Id: " + order.getId());
+                            .then(sm.stopReactively())
+                            .thenReturn("Order state: " + order.getState() + " Id: " + order.getId());
                     }));
             });
     }
+
+
 }
 
