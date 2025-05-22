@@ -33,7 +33,7 @@ public class OrderService {
     public Mono<String> processEvent(UUID orderId, OrderEvent event) {
         return orderRepository.findById(orderId)
             .switchIfEmpty(Mono.error(new RuntimeException("Order not found")))
-            .flatMap(order -> {
+            .flatMap(order -> Mono.defer(() -> {
                 StateMachine<OrderState, OrderEvent> sm = factory.getStateMachine(orderId.toString());
 
                 return sm.startReactively()
@@ -53,7 +53,7 @@ public class OrderService {
                             .then(sm.stopReactively())
                             .thenReturn("Order state: " + order.getState() + " Id: " + order.getId());
                     }));
-            });
+            }));
     }
 
 
